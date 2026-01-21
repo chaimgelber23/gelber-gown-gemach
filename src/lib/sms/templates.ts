@@ -191,6 +191,34 @@ Or ask me any questions about our policies!`;
 }
 
 /**
+ * Admin cancelled appointment
+ */
+export function getAdminCancelledTemplate(data: { name: string; date: string }): string {
+    return `Hi ${data.name}, your Gelber Gown Gemach appointment on ${data.date} has been cancelled. Please text us to rebook if needed.`;
+}
+
+/**
+ * Admin rescheduled appointment
+ */
+export function getAdminRescheduledTemplate(data: { name: string; newDate: string; newTime: string }): string {
+    return `Hi ${data.name}, your appointment has been moved to ${data.newDate} at ${data.newTime}. Reply if this doesn't work for you!`;
+}
+
+/**
+ * Customer cancelled their own booking
+ */
+export function getCustomerCancelledTemplate(data: { date: string }): string {
+    return `Your appointment on ${data.date} has been cancelled. Text anytime to book a new appointment!`;
+}
+
+/**
+ * Unknown question fallback
+ */
+export function getUnknownQuestionTemplate(): string {
+    return `I'm not sure about that. Please text the manager directly at 718-614-8390 for help, or try rephrasing your question.`;
+}
+
+/**
  * Format booking for summary list
  */
 export function formatBookingForSummary(booking: Booking): string {

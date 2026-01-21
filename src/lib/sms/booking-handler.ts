@@ -155,6 +155,7 @@ export async function createBooking(
         status: 'confirmed',
         gownPickedUp: false,
         gownReturned: false,
+        donationPaid: false,
         confirmationSent: false,
         dayBeforeReminderSent: false,
         returnReminderSent: false,
@@ -248,4 +249,189 @@ export async function markReminderSent(
         [field]: true,
         updatedAt: Timestamp.now()
     });
+}
+
+/**
+ * Cancel a booking
+ */
+export async function cancelBooking(
+    db: Firestore,
+    bookingId: string
+): Promise<Booking | null> {
+    const bookingRef = db.collection(COLLECTIONS.BOOKINGS).doc(bookingId);
+    const doc = await bookingRef.get();
+
+    if (!doc.exists) {
+        return null;
+    }
+
+    await bookingRef.update({
+        status: 'cancelled',
+        updatedAt: Timestamp.now()
+    });
+
+    return { ...doc.data(), status: 'cancelled' } as Booking;
+}
+
+/**
+ * Reschedule a booking to a new date/time
+ */
+export async function rescheduleBooking(
+    db: Firestore,
+    bookingId: string,
+    newDate: Date,
+    newSlotTime: string
+): Promise<Booking | null> {
+    const bookingRef = db.collection(COLLECTIONS.BOOKINGS).doc(bookingId);
+    const doc = await bookingRef.get();
+
+    if (!doc.exists) {
+        return null;
+    }
+
+    // Check new slot availability
+    const available = await isSlotAvailable(db, newDate, newSlotTime);
+    if (!available) {
+        throw new Error('New slot is not available');
+    }
+
+    await bookingRef.update({
+        appointmentDate: Timestamp.fromDate(newDate),
+        slotTime: newSlotTime,
+        dayBeforeReminderSent: false, // Reset reminder
+        updatedAt: Timestamp.now()
+    });
+
+    const updated = await bookingRef.get();
+    return updated.data() as Booking;
+}
+
+/**
+ * Update booking fields (for admin dashboard)
+ */
+export async function updateBooking(
+    db: Firestore,
+    bookingId: string,
+    updates: Partial<{
+        gownPickedUp: boolean;
+        gownReturned: boolean;
+        donationPaid: boolean;
+        donationAmount: number;
+        notes: string;
+        status: Booking['status'];
+    }>
+): Promise<Booking | null> {
+    const bookingRef = db.collection(COLLECTIONS.BOOKINGS).doc(bookingId);
+    const doc = await bookingRef.get();
+
+    if (!doc.exists) {
+        return null;
+    }
+
+    await bookingRef.update({
+        ...updates,
+        updatedAt: Timestamp.now()
+    });
+
+    const updated = await bookingRef.get();
+    return updated.data() as Booking;
+}
+
+/**
+ * Get a booking by ID
+ */
+export async function getBookingById(
+    db: Firestore,
+    bookingId: string
+): Promise<Booking | null> {
+    const doc = await db.collection(COLLECTIONS.BOOKINGS).doc(bookingId).get();
+    return doc.exists ? (doc.data() as Booking) : null;
+}
+
+/**
+ * Get active booking for a phone number (for cancellation via SMS)
+ */
+export async function getActiveBookingByPhone(
+    db: Firestore,
+    phone: string
+): Promise<Booking | null> {
+    const normalizedPhone = phone.replace(/\D/g, '');
+
+    // Find the most recent confirmed booking for this phone
+    const snapshot = await db.collection(COLLECTIONS.BOOKINGS)
+        .where('customerPhone', '==', phone)
+        .where('status', '==', 'confirmed')
+        .orderBy('appointmentDate', 'desc')
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) {
+        // Try with normalized phone
+        const snapshot2 = await db.collection(COLLECTIONS.BOOKINGS)
+            .where('customerPhone', '==', `+1${normalizedPhone}`)
+            .where('status', '==', 'confirmed')
+            .orderBy('appointmentDate', 'desc')
+            .limit(1)
+            .get();
+
+        return snapshot2.empty ? null : (snapshot2.docs[0].data() as Booking);
+    }
+
+    return snapshot.docs[0].data() as Booking;
+}
+
+/**
+ * Get all bookings (for admin dashboard)
+ */
+export async function getAllBookings(
+    db: Firestore,
+    options?: {
+        status?: Booking['status'] | 'all';
+        outstandingGowns?: boolean;
+        unpaid?: boolean;
+        limit?: number;
+    }
+): Promise<Booking[]> {
+    let query = db.collection(COLLECTIONS.BOOKINGS).orderBy('appointmentDate', 'desc');
+
+    if (options?.status && options.status !== 'all') {
+        query = query.where('status', '==', options.status) as any;
+    }
+
+    if (options?.outstandingGowns) {
+        query = query.where('gownPickedUp', '==', true).where('gownReturned', '==', false) as any;
+    }
+
+    if (options?.unpaid) {
+        query = query.where('donationPaid', '==', false) as any;
+    }
+
+    if (options?.limit) {
+        query = query.limit(options.limit) as any;
+    }
+
+    const snapshot = await query.get();
+    return snapshot.docs.map((d) => d.data() as Booking);
+}
+
+/**
+ * Get bookings for a specific date
+ */
+export async function getBookingsForDate(
+    db: Firestore,
+    date: Date
+): Promise<Booking[]> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const snapshot = await db.collection(COLLECTIONS.BOOKINGS)
+        .where('appointmentDate', '>=', Timestamp.fromDate(startOfDay))
+        .where('appointmentDate', '<=', Timestamp.fromDate(endOfDay))
+        .where('status', 'in', ['pending', 'confirmed'])
+        .orderBy('appointmentDate', 'asc')
+        .get();
+
+    return snapshot.docs.map((d) => d.data() as Booking);
 }

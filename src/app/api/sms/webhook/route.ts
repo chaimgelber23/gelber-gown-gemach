@@ -13,7 +13,9 @@ import {
 import {
     createBooking,
     isSlotAvailable,
-    getAvailableSlotsForDate
+    getAvailableSlotsForDate,
+    cancelBooking,
+    getActiveBookingByPhone
 } from '@/lib/sms/booking-handler';
 import { parseDate, formatDate, getNextAvailableDates, isValidAppointmentTime } from '@/lib/sms/date-utils';
 import { sendSms, normalizePhone } from '@/lib/sms/twilio-sender';
@@ -23,6 +25,7 @@ import {
     getSlotUnavailableTemplate,
     getGreetingTemplate,
     getFaqResponse,
+    getCustomerCancelledTemplate,
 } from '@/lib/sms/templates';
 import { SmsLog, COLLECTIONS } from '@/lib/sms/types';
 
@@ -109,8 +112,20 @@ export async function POST(request: NextRequest) {
                 break;
 
             case 'cancellation':
-                await clearConversationState(db as any, phone);
-                responseMessage = 'Your booking request has been cancelled. Text anytime to start a new booking!';
+                // First, check if they have a confirmed booking
+                const activeBooking = await getActiveBookingByPhone(db, phone);
+                if (activeBooking) {
+                    // Cancel the actual booking
+                    await cancelBooking(db, activeBooking.id);
+                    const dateStr = activeBooking.appointmentDate.toDate().toLocaleDateString('en-US', {
+                        weekday: 'short', month: 'short', day: 'numeric'
+                    });
+                    responseMessage = getCustomerCancelledTemplate({ date: dateStr });
+                } else {
+                    // Just clear conversation state
+                    await clearConversationState(db as any, phone);
+                    responseMessage = 'Your booking request has been cancelled. Text anytime to start a new booking!';
+                }
                 break;
 
             case 'confirmation':

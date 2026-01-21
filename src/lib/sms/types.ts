@@ -37,6 +37,7 @@ export interface Booking {
   gownReturned: boolean;
   gownReturnDate?: Timestamp;
   donationAmount?: number;
+  donationPaid: boolean;
 
   // Reminder tracking
   confirmationSent: boolean;
