@@ -59,29 +59,44 @@ function getDb() {
 
 // Twilio sends form-urlencoded data
 export async function POST(request: NextRequest) {
+    console.log('[WEBHOOK] POST request received');
     try {
         const formData = await request.formData();
         const from = formData.get('From') as string;
         const body = formData.get('Body') as string;
         const messageSid = formData.get('MessageSid') as string;
 
+        console.log('[WEBHOOK] Parsed form data:', { from, body: body?.substring(0, 50), messageSid });
+
         if (!from || !body) {
+            console.log('[WEBHOOK] Missing required fields');
             return new NextResponse('Missing required fields', { status: 400 });
         }
 
         const phone = normalizePhone(from);
+        console.log('[WEBHOOK] Normalized phone:', phone);
+
+        console.log('[WEBHOOK] Initializing Firebase...');
         const db = getDb();
+        console.log('[WEBHOOK] Firebase initialized');
 
         // Log incoming message
+        console.log('[WEBHOOK] Logging message to Firestore...');
         await logMessage(db, 'inbound', phone, body, messageSid);
+        console.log('[WEBHOOK] Message logged');
 
         // Get existing conversation state
+        console.log('[WEBHOOK] Getting conversation state...');
         const existingState = await getConversationState(db as any, phone);
+        console.log('[WEBHOOK] Got conversation state:', existingState ? 'exists' : 'new');
 
         // Parse the incoming message
+        console.log('[WEBHOOK] Parsing message with OpenAI...');
         const parsed = await parseMessage(body, existingState);
+        console.log('[WEBHOOK] Parsed intent:', parsed.intent);
 
         let responseMessage: string;
+
 
         // Handle different intents
         switch (parsed.intent) {
