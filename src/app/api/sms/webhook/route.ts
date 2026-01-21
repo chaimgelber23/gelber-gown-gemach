@@ -161,9 +161,17 @@ Reply YES to confirm or CANCEL to start over.`;
             }
         );
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Webhook error:', error);
-        return new NextResponse('Internal server error', { status: 500 });
+        // Return detailed error for debugging (remove in production)
+        return new NextResponse(
+            JSON.stringify({
+                error: 'Internal server error',
+                message: error?.message || 'Unknown error',
+                stack: error?.stack?.split('\n').slice(0, 5) || []
+            }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
     }
 }
 
