@@ -35,12 +35,19 @@ function getDb() {
         const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
         if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-            initializeApp({
-                credential: cert(serviceAccount),
-                projectId,
-            });
+            try {
+                const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+                initializeApp({
+                    credential: cert(serviceAccount),
+                    projectId,
+                });
+            } catch (parseError) {
+                console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', parseError);
+                // Fallback to default credentials
+                initializeApp({ projectId });
+            }
         } else {
+            console.warn('FIREBASE_SERVICE_ACCOUNT_KEY not found, using default credentials');
             // Fallback for development - use default credentials
             initializeApp({ projectId });
         }
@@ -48,6 +55,7 @@ function getDb() {
 
     return getAdminFirestore();
 }
+
 
 // Twilio sends form-urlencoded data
 export async function POST(request: NextRequest) {
