@@ -1,8 +1,7 @@
 // Twilio SMS Webhook - receives incoming messages
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirestore, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
+import { getFirestore as getAdminFirestore, Timestamp } from 'firebase-admin/firestore';
 
 import { parseMessage, getMissingFields, mergeData } from '@/lib/sms/message-parser';
 import {

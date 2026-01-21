@@ -1,6 +1,7 @@
 // Firestore schema types for SMS booking agent
+// Uses Firebase Admin SDK types for server-side operations
 
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 
 // Customer record - stored when someone first texts
 export interface Customer {
@@ -17,31 +18,31 @@ export interface Booking {
   customerId: string;
   customerName: string;
   customerPhone: string;
-  
+
   // Appointment details
   appointmentDate: Timestamp;  // The date of the visit
   slotTime: string;            // e.g., "11:30 AM", "7:30 PM"
   slotDuration: number;        // 15 or 30 minutes
   groupSize: number;           // Max 4, or 6 for 30-min slots
-  
+
   // Wedding details
   weddingDate: Timestamp;
-  
+
   // Status tracking
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
-  
+
   // Gown tracking
   gownPickedUp: boolean;
   gownPickupDate?: Timestamp;
   gownReturned: boolean;
   gownReturnDate?: Timestamp;
   donationAmount?: number;
-  
+
   // Reminder tracking
   confirmationSent: boolean;
   dayBeforeReminderSent: boolean;
   returnReminderSent: boolean;
-  
+
   // Metadata
   createdAt: Timestamp;
   updatedAt: Timestamp;

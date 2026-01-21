@@ -1,21 +1,9 @@
 // Booking handler - manages appointment creation and validation
+// Uses Firebase Admin SDK for server-side operations
 
-import {
-    getFirestore,
-    collection,
-    doc,
-    setDoc,
-    getDoc,
-    getDocs,
-    query,
-    where,
-    Timestamp,
-    orderBy,
-    limit
-} from 'firebase/firestore';
-import { Booking, Customer, ConversationState, COLLECTIONS } from './types';
-import { ParsedMessage } from './message-parser';
-import { parseDate, getNextAvailableDates, isValidAppointmentTime } from './date-utils';
+import { Firestore, Timestamp } from 'firebase-admin/firestore';
+import { Booking, Customer, COLLECTIONS } from './types';
+import { isValidAppointmentTime } from './date-utils';
 
 /**
  * Available time slots
@@ -29,28 +17,26 @@ export const APPOINTMENT_SLOTS = {
  * Create or update a customer record
  */
 export async function upsertCustomer(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     phone: string,
     name: string
 ): Promise<Customer> {
-    const customerId = phone.replace(/\D/g, ''); // Use phone digits as ID
-    const customerRef = doc(db, COLLECTIONS.CUSTOMERS, customerId);
+    const customerId = phone.replace(/\D/g, '');
+    const customerRef = db.collection(COLLECTIONS.CUSTOMERS).doc(customerId);
 
-    const existing = await getDoc(customerRef);
+    const existing = await customerRef.get();
     const now = Timestamp.now();
 
-    if (existing.exists()) {
-        // Update existing customer
+    if (existing.exists) {
         const customer = {
             ...existing.data() as Customer,
-            name, // Update name in case it changed
+            name,
             updatedAt: now,
         };
-        await setDoc(customerRef, customer);
+        await customerRef.set(customer);
         return customer;
     }
 
-    // Create new customer
     const customer: Customer = {
         id: customerId,
         name,
@@ -59,7 +45,7 @@ export async function upsertCustomer(
         updatedAt: now,
     };
 
-    await setDoc(customerRef, customer);
+    await customerRef.set(customer);
     return customer;
 }
 
@@ -67,32 +53,27 @@ export async function upsertCustomer(
  * Check if a slot is available
  */
 export async function isSlotAvailable(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     date: Date,
     slotTime: string
 ): Promise<boolean> {
-    // Check valid time first
     if (!isValidAppointmentTime(date, slotTime)) {
         return false;
     }
 
-    // Query for existing bookings at this date/time
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const bookingsRef = collection(db, COLLECTIONS.BOOKINGS);
-    const q = query(
-        bookingsRef,
-        where('appointmentDate', '>=', Timestamp.fromDate(startOfDay)),
-        where('appointmentDate', '<=', Timestamp.fromDate(endOfDay)),
-        where('slotTime', '==', slotTime),
-        where('status', 'in', ['pending', 'confirmed']),
-        limit(1)
-    );
+    const snapshot = await db.collection(COLLECTIONS.BOOKINGS)
+        .where('appointmentDate', '>=', Timestamp.fromDate(startOfDay))
+        .where('appointmentDate', '<=', Timestamp.fromDate(endOfDay))
+        .where('slotTime', '==', slotTime)
+        .where('status', 'in', ['pending', 'confirmed'])
+        .limit(1)
+        .get();
 
-    const snapshot = await getDocs(q);
     return snapshot.empty;
 }
 
@@ -100,22 +81,20 @@ export async function isSlotAvailable(
  * Get available slots for a given date
  */
 export async function getAvailableSlotsForDate(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     date: Date
 ): Promise<string[]> {
     const dayOfWeek = date.getDay();
 
-    // Determine which slots are possible for this day
     let possibleSlots: readonly string[];
-    if (dayOfWeek === 3) { // Wednesday
+    if (dayOfWeek === 3) {
         possibleSlots = APPOINTMENT_SLOTS.wednesday;
-    } else if (dayOfWeek === 6) { // Saturday (Motzei Shabbos)
+    } else if (dayOfWeek === 6) {
         possibleSlots = APPOINTMENT_SLOTS.motzeiShabbos;
     } else {
-        return []; // No appointments on other days
+        return [];
     }
 
-    // Check each slot for availability
     const available: string[] = [];
     for (const slot of possibleSlots) {
         if (await isSlotAvailable(db, date, slot)) {
@@ -130,7 +109,7 @@ export async function getAvailableSlotsForDate(
  * Create a new booking
  */
 export async function createBooking(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     data: {
         customerPhone: string;
         customerName: string;
@@ -140,18 +119,14 @@ export async function createBooking(
         weddingDate: Date;
     }
 ): Promise<Booking> {
-    // First, ensure customer exists
     const customer = await upsertCustomer(db, data.customerPhone, data.customerName);
 
-    // Validate slot
     const isAvailable = await isSlotAvailable(db, data.appointmentDate, data.slotTime);
     if (!isAvailable) {
         throw new Error('Slot is not available');
     }
 
-    // Validate group size
     if (data.groupSize > 4 && data.groupSize <= 6) {
-        // Need 30-min slot - check if it's the last slot
         const slots = data.appointmentDate.getDay() === 3
             ? APPOINTMENT_SLOTS.wednesday
             : APPOINTMENT_SLOTS.motzeiShabbos;
@@ -164,7 +139,6 @@ export async function createBooking(
         throw new Error('Maximum group size is 6');
     }
 
-    // Create booking
     const now = Timestamp.now();
     const bookingId = `${customer.id}_${data.appointmentDate.getTime()}`;
 
@@ -188,30 +162,25 @@ export async function createBooking(
         updatedAt: now,
     };
 
-    const bookingRef = doc(db, COLLECTIONS.BOOKINGS, bookingId);
-    await setDoc(bookingRef, booking);
-
+    await db.collection(COLLECTIONS.BOOKINGS).doc(bookingId).set(booking);
     return booking;
 }
 
 /**
- * Get bookings for a date range (for weekly summary)
+ * Get bookings for a date range
  */
 export async function getBookingsInRange(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     startDate: Date,
     endDate: Date
 ): Promise<Booking[]> {
-    const bookingsRef = collection(db, COLLECTIONS.BOOKINGS);
-    const q = query(
-        bookingsRef,
-        where('appointmentDate', '>=', Timestamp.fromDate(startDate)),
-        where('appointmentDate', '<=', Timestamp.fromDate(endDate)),
-        where('status', 'in', ['pending', 'confirmed']),
-        orderBy('appointmentDate', 'asc')
-    );
+    const snapshot = await db.collection(COLLECTIONS.BOOKINGS)
+        .where('appointmentDate', '>=', Timestamp.fromDate(startDate))
+        .where('appointmentDate', '<=', Timestamp.fromDate(endDate))
+        .where('status', 'in', ['pending', 'confirmed'])
+        .orderBy('appointmentDate', 'asc')
+        .get();
 
-    const snapshot = await getDocs(q);
     return snapshot.docs.map((d) => d.data() as Booking);
 }
 
@@ -219,7 +188,7 @@ export async function getBookingsInRange(
  * Get bookings needing day-before reminder
  */
 export async function getBookingsNeedingReminder(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     reminderDate: Date
 ): Promise<Booking[]> {
     const startOfDay = new Date(reminderDate);
@@ -227,24 +196,21 @@ export async function getBookingsNeedingReminder(
     const endOfDay = new Date(reminderDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const bookingsRef = collection(db, COLLECTIONS.BOOKINGS);
-    const q = query(
-        bookingsRef,
-        where('appointmentDate', '>=', Timestamp.fromDate(startOfDay)),
-        where('appointmentDate', '<=', Timestamp.fromDate(endOfDay)),
-        where('status', '==', 'confirmed'),
-        where('dayBeforeReminderSent', '==', false)
-    );
+    const snapshot = await db.collection(COLLECTIONS.BOOKINGS)
+        .where('appointmentDate', '>=', Timestamp.fromDate(startOfDay))
+        .where('appointmentDate', '<=', Timestamp.fromDate(endOfDay))
+        .where('status', '==', 'confirmed')
+        .where('dayBeforeReminderSent', '==', false)
+        .get();
 
-    const snapshot = await getDocs(q);
     return snapshot.docs.map((d) => d.data() as Booking);
 }
 
 /**
- * Get bookings needing return reminder (wedding was yesterday)
+ * Get bookings needing return reminder
  */
 export async function getBookingsNeedingReturnReminder(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     weddingDate: Date
 ): Promise<Booking[]> {
     const startOfDay = new Date(weddingDate);
@@ -252,16 +218,13 @@ export async function getBookingsNeedingReturnReminder(
     const endOfDay = new Date(weddingDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const bookingsRef = collection(db, COLLECTIONS.BOOKINGS);
-    const q = query(
-        bookingsRef,
-        where('weddingDate', '>=', Timestamp.fromDate(startOfDay)),
-        where('weddingDate', '<=', Timestamp.fromDate(endOfDay)),
-        where('gownReturned', '==', false),
-        where('returnReminderSent', '==', false)
-    );
+    const snapshot = await db.collection(COLLECTIONS.BOOKINGS)
+        .where('weddingDate', '>=', Timestamp.fromDate(startOfDay))
+        .where('weddingDate', '<=', Timestamp.fromDate(endOfDay))
+        .where('gownReturned', '==', false)
+        .where('returnReminderSent', '==', false)
+        .get();
 
-    const snapshot = await getDocs(q);
     return snapshot.docs.map((d) => d.data() as Booking);
 }
 
@@ -269,11 +232,11 @@ export async function getBookingsNeedingReturnReminder(
  * Mark reminder as sent
  */
 export async function markReminderSent(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     bookingId: string,
     reminderType: 'confirmation' | 'dayBefore' | 'return'
 ): Promise<void> {
-    const bookingRef = doc(db, COLLECTIONS.BOOKINGS, bookingId);
+    const bookingRef = db.collection(COLLECTIONS.BOOKINGS).doc(bookingId);
 
     const field = {
         confirmation: 'confirmationSent',
@@ -281,8 +244,8 @@ export async function markReminderSent(
         return: 'returnReminderSent',
     }[reminderType];
 
-    await setDoc(bookingRef, {
+    await bookingRef.update({
         [field]: true,
         updatedAt: Timestamp.now()
-    }, { merge: true });
+    });
 }

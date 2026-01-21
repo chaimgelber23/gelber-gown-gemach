@@ -1,13 +1,7 @@
 // Conversation state manager - handles multi-turn SMS conversations
+// Uses Firebase Admin SDK for server-side operations
 
-import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc,
-    deleteDoc,
-    Timestamp
-} from 'firebase/firestore';
+import { Firestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { ConversationState, COLLECTIONS } from './types';
 import { ParsedMessage, mergeData, getMissingFields } from './message-parser';
 
@@ -17,15 +11,15 @@ const CONVERSATION_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
  * Get or create conversation state for a phone number
  */
 export async function getConversationState(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     phone: string
 ): Promise<ConversationState | null> {
     const stateId = phone.replace(/\D/g, '');
-    const stateRef = doc(db, COLLECTIONS.CONVERSATIONS, stateId);
+    const stateRef = db.collection(COLLECTIONS.CONVERSATIONS).doc(stateId);
 
-    const snapshot = await getDoc(stateRef);
+    const snapshot = await stateRef.get();
 
-    if (!snapshot.exists()) {
+    if (!snapshot.exists) {
         return null;
     }
 
@@ -33,7 +27,7 @@ export async function getConversationState(
 
     // Check if expired
     if (state.expiresAt.toMillis() < Date.now()) {
-        await deleteDoc(stateRef);
+        await stateRef.delete();
         return null;
     }
 
@@ -44,13 +38,13 @@ export async function getConversationState(
  * Update conversation state with new data
  */
 export async function updateConversationState(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     phone: string,
     parsed: ParsedMessage,
     existingState: ConversationState | null
 ): Promise<ConversationState> {
     const stateId = phone.replace(/\D/g, '');
-    const stateRef = doc(db, COLLECTIONS.CONVERSATIONS, stateId);
+    const stateRef = db.collection(COLLECTIONS.CONVERSATIONS).doc(stateId);
     const now = Timestamp.now();
 
     // Merge new data with existing
@@ -77,7 +71,7 @@ export async function updateConversationState(
         expiresAt: Timestamp.fromMillis(Date.now() + CONVERSATION_TIMEOUT_MS),
     };
 
-    await setDoc(stateRef, newState);
+    await stateRef.set(newState);
     return newState;
 }
 
@@ -85,12 +79,12 @@ export async function updateConversationState(
  * Clear conversation state (after booking complete or cancelled)
  */
 export async function clearConversationState(
-    db: ReturnType<typeof getFirestore>,
+    db: Firestore,
     phone: string
 ): Promise<void> {
     const stateId = phone.replace(/\D/g, '');
-    const stateRef = doc(db, COLLECTIONS.CONVERSATIONS, stateId);
-    await deleteDoc(stateRef);
+    const stateRef = db.collection(COLLECTIONS.CONVERSATIONS).doc(stateId);
+    await stateRef.delete();
 }
 
 /**
