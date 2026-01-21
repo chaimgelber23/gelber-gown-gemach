@@ -148,7 +148,14 @@ Reply YES to confirm or CANCEL to start over.`;
         }
 
         // Send response
-        await sendSms(phone, responseMessage);
+        console.log('[WEBHOOK] Sending SMS response:', { to: phone, messageLength: responseMessage.length });
+        const smsResult = await sendSms(phone, responseMessage);
+        console.log('[WEBHOOK] SMS send result:', smsResult);
+
+        if (!smsResult.success) {
+            console.error('[WEBHOOK] SMS failed to send:', smsResult.error);
+        }
+
         await logMessage(db, 'outbound', phone, responseMessage);
 
         // Return TwiML response (empty - we send via API)
