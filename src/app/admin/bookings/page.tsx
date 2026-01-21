@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import EditBookingModal from '@/components/admin/EditBookingModal';
 
 interface Booking {
     id: string;
@@ -24,8 +25,9 @@ export default function AllBookingsPage() {
     const [updating, setUpdating] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [editingNotes, setEditingNotes] = useState<string | null>(null);
-    const [notesValue, setNotesValue] = useState('');
+
+    // Edit Modal State
+    const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
 
     const fetchBookings = async () => {
         try {
@@ -60,9 +62,10 @@ export default function AllBookingsPage() {
         }
     };
 
-    const saveNotes = async (bookingId: string) => {
-        await updateBooking(bookingId, { notes: notesValue } as any);
-        setEditingNotes(null);
+    const handleSaveEdit = async (updates: Partial<Booking>) => {
+        if (!editingBooking) return;
+        await updateBooking(editingBooking.id, updates);
+        setEditingBooking(null);
     };
 
     const formatDate = (timestamp: { _seconds: number }) => {
@@ -82,127 +85,154 @@ export default function AllBookingsPage() {
         );
     });
 
+    const FilterButton = ({ label, value }: { label: string, value: string }) => (
+        <button
+            onClick={() => setStatusFilter(value)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${statusFilter === value
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                }`}
+        >
+            {label}
+        </button>
+    );
+
     if (loading) {
-        return <div className="text-center py-12 text-gray-500">Loading...</div>;
+        return <div className="text-center py-12 text-gray-400">Loading...</div>;
     }
 
     return (
         <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">📋 All Bookings</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                <h2 className="text-2xl font-bold text-gray-900">All Bookings</h2>
 
-            {/* Filters */}
-            <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4">
-                <input
-                    type="text"
-                    placeholder="Search name or phone..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="px-4 py-2 border rounded-lg flex-1 min-w-[200px]"
-                />
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-4 py-2 border rounded-lg"
-                >
-                    <option value="all">All Status</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="completed">Completed</option>
-                </select>
+                {/* Control Bar */}
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="px-4 py-2 border border-gray-200 rounded-lg min-w-[200px] focus:outline-none focus:ring-2 focus:ring-gray-200"
+                    />
+                </div>
+            </div>
+
+            {/* Filter Buttons */}
+            <div className="flex flex-wrap gap-2 mb-6">
+                <FilterButton label="All" value="all" />
+                <FilterButton label="Confirmed" value="confirmed" />
+                <FilterButton label="Cancelled" value="cancelled" />
+                <FilterButton label="Completed" value="completed" />
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-x-auto">
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Picked</th>
-                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Returned</th>
-                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Paid</th>
-                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {filteredBookings.map((booking) => (
-                            <tr key={booking.id} className={updating === booking.id ? 'opacity-50' : ''}>
-                                <td className="px-3 py-3">{formatDate(booking.appointmentDate)}</td>
-                                <td className="px-3 py-3">{booking.slotTime}</td>
-                                <td className="px-3 py-3 font-medium">{booking.customerName}</td>
-                                <td className="px-3 py-3 text-gray-500">{booking.customerPhone}</td>
-                                <td className="px-3 py-3 text-center">
-                                    <span className={`px-2 py-1 rounded text-xs font-medium ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                            booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                                'bg-gray-100 text-gray-700'
-                                        }`}>
-                                        {booking.status}
-                                    </span>
-                                </td>
-                                <td className="px-3 py-3 text-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={booking.gownPickedUp}
-                                        onChange={(e) => updateBooking(booking.id, { gownPickedUp: e.target.checked })}
-                                        className="w-4 h-4 text-blue-600 rounded"
-                                    />
-                                </td>
-                                <td className="px-3 py-3 text-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={booking.gownReturned}
-                                        onChange={(e) => updateBooking(booking.id, { gownReturned: e.target.checked })}
-                                        className="w-4 h-4 text-blue-600 rounded"
-                                    />
-                                </td>
-                                <td className="px-3 py-3 text-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={booking.donationPaid}
-                                        onChange={(e) => updateBooking(booking.id, { donationPaid: e.target.checked })}
-                                        className="w-4 h-4 text-blue-600 rounded"
-                                    />
-                                </td>
-                                <td className="px-3 py-3">
-                                    {editingNotes === booking.id ? (
-                                        <div className="flex gap-1">
-                                            <input
-                                                type="text"
-                                                value={notesValue}
-                                                onChange={(e) => setNotesValue(e.target.value)}
-                                                className="px-2 py-1 border rounded text-xs w-32"
-                                                autoFocus
-                                            />
-                                            <button
-                                                onClick={() => saveNotes(booking.id)}
-                                                className="text-blue-600 text-xs"
-                                            >
-                                                Save
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => {
-                                                setEditingNotes(booking.id);
-                                                setNotesValue(booking.notes || '');
-                                            }}
-                                            className="text-gray-400 hover:text-gray-600 text-xs"
-                                        >
-                                            {booking.notes || '+ Add note'}
-                                        </button>
-                                    )}
-                                </td>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th className="px-6 py-4 font-semibold text-gray-900">Date/Time</th>
+                                <th className="px-6 py-4 font-semibold text-gray-900">Customer</th>
+                                <th className="px-6 py-4 font-semibold text-gray-900 text-center">Group</th>
+                                <th className="px-6 py-4 font-semibold text-gray-900 text-center">Status</th>
+                                <th className="px-6 py-4 font-semibold text-gray-900 text-center">Progress</th>
+                                <th className="px-6 py-4 font-semibold text-gray-900">Notes</th>
+                                <th className="px-6 py-4 font-semibold text-gray-900 text-right">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {filteredBookings.map((booking) => (
+                                <tr key={booking.id} className={`hover:bg-gray-50/50 transition-colors ${updating === booking.id ? 'opacity-50' : ''}`}>
+                                    <td className="px-6 py-4">
+                                        <div className="font-medium text-gray-900">{formatDate(booking.appointmentDate)}</div>
+                                        <div className="text-gray-500">{booking.slotTime}</div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-medium text-gray-900">{booking.customerName}</div>
+                                        <a href={`tel:${booking.customerPhone}`} className="text-gray-500 hover:text-blue-600 transition-colors">
+                                            {booking.customerPhone}
+                                        </a>
+                                    </td>
+                                    <td className="px-6 py-4 text-center text-gray-600">
+                                        {booking.groupSize}
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                                booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                                    'bg-gray-100 text-gray-800'
+                                            }`}>
+                                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex justify-center gap-2">
+                                            <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={booking.gownPickedUp}
+                                                    onChange={(e) => updateBooking(booking.id, { gownPickedUp: e.target.checked })}
+                                                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                />
+                                                <span className="text-[10px] text-gray-400 group-hover:text-gray-600">Picked</span>
+                                            </label>
+                                            <div className="w-px h-8 bg-gray-200 mx-1"></div>
+                                            <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={booking.gownReturned}
+                                                    onChange={(e) => updateBooking(booking.id, { gownReturned: e.target.checked })}
+                                                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                />
+                                                <span className="text-[10px] text-gray-400 group-hover:text-gray-600">Returned</span>
+                                            </label>
+                                            <div className="w-px h-8 bg-gray-200 mx-1"></div>
+                                            <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={booking.donationPaid}
+                                                    onChange={(e) => updateBooking(booking.id, { donationPaid: e.target.checked })}
+                                                    className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                                                />
+                                                <span className="text-[10px] text-gray-400 group-hover:text-gray-600">Paid</span>
+                                            </label>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 max-w-[200px]">
+                                        <div className="text-gray-600 truncate" title={booking.notes}>
+                                            {booking.notes || <span className="text-gray-300 italic">No notes</span>}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button
+                                            onClick={() => setEditingBooking(booking)}
+                                            className="text-blue-600 hover:text-blue-900 font-medium text-sm transition-colors"
+                                        >
+                                            Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
                 {filteredBookings.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">No bookings found</div>
+                    <div className="text-center py-12">
+                        <div className="text-gray-400 mb-2">No bookings found</div>
+                        <p className="text-sm text-gray-500">Try adjusting your filters</p>
+                    </div>
                 )}
             </div>
+
+            {/* Edit Modal */}
+            {editingBooking && (
+                <EditBookingModal
+                    booking={editingBooking}
+                    isOpen={!!editingBooking}
+                    onClose={() => setEditingBooking(null)}
+                    onSave={handleSaveEdit}
+                />
+            )}
         </div>
     );
 }
