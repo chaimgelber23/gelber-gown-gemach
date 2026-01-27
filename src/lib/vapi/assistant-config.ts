@@ -179,78 +179,43 @@ export const VAPI_TOOLS = [
   }
 ];
 
-// Full assistant configuration for Vapi API
-export function getAssistantConfig(serverUrl: string) {
-  // Build tools with server URL - Vapi's current format
-  const tools = [
+// Tool definitions to add via Vapi dashboard
+export function getToolDefinitions(serverUrl: string) {
+  return [
     {
-      type: "function" as const,
-      async: false,
-      server: {
-        url: `${serverUrl}/api/vapi`
-      },
-      function: {
-        name: "checkAvailability",
-        description: "Check available appointment slots for a specific date. Use this when a caller asks about availability or wants to book an appointment.",
-        parameters: {
-          type: "object",
-          properties: {
-            date: {
-              type: "string",
-              description: "The date to check availability for. Can be natural language like 'this wednesday', 'next motzei shabbos', 'January 15', etc."
-            }
-          },
-          required: ["date"]
-        }
+      name: "checkAvailability",
+      description: "Check available appointment slots for a specific date",
+      serverUrl: `${serverUrl}/api/vapi`,
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "The date to check (e.g., 'this wednesday')" }
+        },
+        required: ["date"]
       }
     },
     {
-      type: "function" as const,
-      async: false,
-      server: {
-        url: `${serverUrl}/api/vapi`
-      },
-      function: {
-        name: "createBooking",
-        description: "Create a new appointment booking. Only use this after you have collected ALL required information: name, date, time slot, group size, wedding date, and phone number.",
-        parameters: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "The caller's full name" },
-            appointmentDate: { type: "string", description: "The appointment date (e.g., 'this wednesday', 'January 15')" },
-            slotTime: { type: "string", description: "The specific time slot (e.g., '7:30 PM', '11:45 AM')" },
-            groupSize: { type: "number", description: "Number of people attending (1-6)" },
-            weddingDate: { type: "string", description: "The caller's wedding date" },
-            phone: { type: "string", description: "Phone number for confirmation" }
-          },
-          required: ["name", "appointmentDate", "slotTime", "groupSize", "weddingDate", "phone"]
-        }
-      }
-    },
-    {
-      type: "function" as const,
-      async: false,
-      server: {
-        url: `${serverUrl}/api/vapi`
-      },
-      function: {
-        name: "getBusinessInfo",
-        description: "Get specific business information about hours, location, policies, etc.",
-        parameters: {
-          type: "object",
-          properties: {
-            topic: {
-              type: "string",
-              enum: ["hours", "location", "sizes", "donation", "alterations", "seamstresses", "pickup", "return", "groupSize"],
-              description: "The topic to get information about"
-            }
-          },
-          required: ["topic"]
-        }
+      name: "createBooking",
+      description: "Create a new appointment booking",
+      serverUrl: `${serverUrl}/api/vapi`,
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          appointmentDate: { type: "string" },
+          slotTime: { type: "string" },
+          groupSize: { type: "number" },
+          weddingDate: { type: "string" },
+          phone: { type: "string" }
+        },
+        required: ["name", "appointmentDate", "slotTime", "groupSize", "weddingDate", "phone"]
       }
     }
   ];
+}
 
+// Full assistant configuration for Vapi API
+export function getAssistantConfig(serverUrl: string) {
   return {
     name: "Gelber Gown Gemach Receptionist",
     model: {
@@ -262,8 +227,7 @@ export function getAssistantConfig(serverUrl: string) {
           role: "system",
           content: VAPI_SYSTEM_PROMPT
         }
-      ],
-      tools: tools
+      ]
     },
     voice: {
       provider: "11labs",
@@ -277,7 +241,8 @@ export function getAssistantConfig(serverUrl: string) {
       language: "en"
     },
     silenceTimeoutSeconds: 30,
-    maxDurationSeconds: 600, // 10 minute max call
-    backgroundSound: "off"
+    maxDurationSeconds: 600,
+    backgroundSound: "off",
+    serverUrl: `${serverUrl}/api/vapi`
   };
 }
