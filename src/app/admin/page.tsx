@@ -90,7 +90,7 @@ export default function AdminDashboard() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">
-                    📅 Today's Appointments
+                    Today's Appointments
                 </h2>
                 <span className="text-gray-500">
                     {new Date().toLocaleDateString('en-US', {

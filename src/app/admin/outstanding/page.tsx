@@ -70,12 +70,12 @@ export default function OutstandingPage() {
     return (
         <div>
             <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                👗 Outstanding Gowns ({bookings.length})
+                Outstanding Gowns ({bookings.length})
             </h2>
 
             {bookings.length === 0 ? (
                 <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-                    🎉 All gowns have been returned!
+                    All gowns have been returned!
                 </div>
             ) : (
                 <div className="bg-white rounded-lg shadow overflow-hidden">
