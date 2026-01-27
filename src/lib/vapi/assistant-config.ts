@@ -181,13 +181,75 @@ export const VAPI_TOOLS = [
 
 // Full assistant configuration for Vapi API
 export function getAssistantConfig(serverUrl: string) {
-  // Replace placeholder with actual server URL in tools
-  const tools = VAPI_TOOLS.map(tool => ({
-    ...tool,
-    server: {
-      url: tool.server.url.replace("{{SERVER_URL}}", serverUrl)
+  // Build tools with server URL - Vapi's current format
+  const tools = [
+    {
+      type: "function" as const,
+      async: false,
+      server: {
+        url: `${serverUrl}/api/vapi`
+      },
+      function: {
+        name: "checkAvailability",
+        description: "Check available appointment slots for a specific date. Use this when a caller asks about availability or wants to book an appointment.",
+        parameters: {
+          type: "object",
+          properties: {
+            date: {
+              type: "string",
+              description: "The date to check availability for. Can be natural language like 'this wednesday', 'next motzei shabbos', 'January 15', etc."
+            }
+          },
+          required: ["date"]
+        }
+      }
+    },
+    {
+      type: "function" as const,
+      async: false,
+      server: {
+        url: `${serverUrl}/api/vapi`
+      },
+      function: {
+        name: "createBooking",
+        description: "Create a new appointment booking. Only use this after you have collected ALL required information: name, date, time slot, group size, wedding date, and phone number.",
+        parameters: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The caller's full name" },
+            appointmentDate: { type: "string", description: "The appointment date (e.g., 'this wednesday', 'January 15')" },
+            slotTime: { type: "string", description: "The specific time slot (e.g., '7:30 PM', '11:45 AM')" },
+            groupSize: { type: "number", description: "Number of people attending (1-6)" },
+            weddingDate: { type: "string", description: "The caller's wedding date" },
+            phone: { type: "string", description: "Phone number for confirmation" }
+          },
+          required: ["name", "appointmentDate", "slotTime", "groupSize", "weddingDate", "phone"]
+        }
+      }
+    },
+    {
+      type: "function" as const,
+      async: false,
+      server: {
+        url: `${serverUrl}/api/vapi`
+      },
+      function: {
+        name: "getBusinessInfo",
+        description: "Get specific business information about hours, location, policies, etc.",
+        parameters: {
+          type: "object",
+          properties: {
+            topic: {
+              type: "string",
+              enum: ["hours", "location", "sizes", "donation", "alterations", "seamstresses", "pickup", "return", "groupSize"],
+              description: "The topic to get information about"
+            }
+          },
+          required: ["topic"]
+        }
+      }
     }
-  }));
+  ];
 
   return {
     name: "Gelber Gown Gemach Receptionist",
@@ -195,13 +257,17 @@ export function getAssistantConfig(serverUrl: string) {
       provider: "openai",
       model: "gpt-4o-mini",
       temperature: 0.7,
-      systemPrompt: VAPI_SYSTEM_PROMPT
+      messages: [
+        {
+          role: "system",
+          content: VAPI_SYSTEM_PROMPT
+        }
+      ],
+      tools: tools
     },
     voice: {
       provider: "11labs",
-      voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel - warm, friendly female voice
-      stability: 0.5,
-      similarityBoost: 0.75
+      voiceId: "21m00Tcm4TlvDq8ikWAM" // Rachel - warm, friendly female voice
     },
     firstMessage: "Hi, thank you for calling Gelber Gown Gemach! Mazel tov if you're calling about a wedding. How can I help you today?",
     endCallMessage: "Thank you for calling Gelber Gown Gemach. Mazel tov and have a wonderful day!",
@@ -212,7 +278,6 @@ export function getAssistantConfig(serverUrl: string) {
     },
     silenceTimeoutSeconds: 30,
     maxDurationSeconds: 600, // 10 minute max call
-    backgroundSound: "off",
-    tools
+    backgroundSound: "off"
   };
 }
