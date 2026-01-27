@@ -13,8 +13,9 @@ interface Booking {
     groupSize: number;
     weddingDate: { _seconds: number };
     status: string;
-    gownPickedUp: boolean;
+    gownSelected: boolean;
     gownDescription?: string;
+    gownPickedUp: boolean;
     gownReturned: boolean;
     donationPaid: boolean;
     notes?: string;
@@ -203,8 +204,8 @@ export default function AllBookingsPage() {
                                 <th className="px-4 py-4 font-semibold text-gray-900">Customer</th>
                                 <th className="px-4 py-4 font-semibold text-gray-900">Wedding</th>
                                 <th className="px-4 py-4 font-semibold text-gray-900 text-center">Status</th>
-                                <th className="px-4 py-4 font-semibold text-gray-900">Gown Taken</th>
-                                <th className="px-4 py-4 font-semibold text-gray-900 text-center">Progress</th>
+                                <th className="px-4 py-4 font-semibold text-gray-900">Gown Selected</th>
+                                <th className="px-4 py-4 font-semibold text-gray-900 text-center">Gown Progress</th>
                                 <th className="px-4 py-4 font-semibold text-gray-900 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -240,7 +241,7 @@ export default function AllBookingsPage() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-4 min-w-[180px]">
-                                            {booking.gownPickedUp ? (
+                                            {booking.gownSelected ? (
                                                 editingGownId === booking.id ? (
                                                     <div className="flex gap-1">
                                                         <input
@@ -278,22 +279,33 @@ export default function AllBookingsPage() {
                                                     </div>
                                                 )
                                             ) : (
-                                                <span className="text-gray-300 text-xs italic">Not picked up</span>
+                                                <span className="text-gray-300 text-xs italic">No gown selected</span>
                                             )}
                                         </td>
                                         <td className="px-4 py-4">
-                                            <div className="flex justify-center gap-2">
+                                            <div className="flex justify-center gap-1">
                                                 <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={booking.gownSelected}
+                                                        onChange={(e) => updateBooking(booking.id, { gownSelected: e.target.checked } as any)}
+                                                        className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                                                    />
+                                                    <span className="text-[10px] text-gray-400 group-hover:text-gray-600">Selected</span>
+                                                </label>
+                                                <div className="w-px h-8 bg-gray-200 mx-0.5"></div>
+                                                <label className={`flex flex-col items-center gap-1 group ${booking.gownSelected ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
                                                     <input
                                                         type="checkbox"
                                                         checked={booking.gownPickedUp}
                                                         onChange={(e) => updateBooking(booking.id, { gownPickedUp: e.target.checked })}
                                                         className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                        disabled={!booking.gownSelected}
                                                     />
                                                     <span className="text-[10px] text-gray-400 group-hover:text-gray-600">Picked</span>
                                                 </label>
-                                                <div className="w-px h-8 bg-gray-200 mx-1"></div>
-                                                <label className="flex flex-col items-center gap-1 cursor-pointer group">
+                                                <div className="w-px h-8 bg-gray-200 mx-0.5"></div>
+                                                <label className={`flex flex-col items-center gap-1 group ${booking.gownPickedUp ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
                                                     <input
                                                         type="checkbox"
                                                         checked={booking.gownReturned}
@@ -303,7 +315,7 @@ export default function AllBookingsPage() {
                                                     />
                                                     <span className="text-[10px] text-gray-400 group-hover:text-gray-600">Returned</span>
                                                 </label>
-                                                <div className="w-px h-8 bg-gray-200 mx-1"></div>
+                                                <div className="w-px h-8 bg-gray-200 mx-0.5"></div>
                                                 <label className="flex flex-col items-center gap-1 cursor-pointer group">
                                                     <input
                                                         type="checkbox"

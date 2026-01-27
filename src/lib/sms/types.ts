@@ -31,11 +31,12 @@ export interface Booking {
   // Status tracking
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
 
-  // Gown tracking
-  gownPickedUp: boolean;
+  // Gown tracking (3-step: Selected -> Picked Up -> Returned)
+  gownSelected: boolean;       // Step 1: They chose a gown during appointment
+  gownDescription?: string;    // What gown they chose (e.g., "White A-line, size 8")
+  gownPickedUp: boolean;       // Step 2: They took it home (~2 weeks before wedding)
   gownPickupDate?: Timestamp;
-  gownDescription?: string;  // What gown they took (e.g., "White A-line, size 8")
-  gownReturned: boolean;
+  gownReturned: boolean;       // Step 3: They returned it after wedding
   gownReturnDate?: Timestamp;
   donationAmount?: number;
   donationPaid: boolean;

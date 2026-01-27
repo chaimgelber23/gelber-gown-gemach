@@ -153,6 +153,7 @@ export async function createBooking(
         groupSize: data.groupSize,
         weddingDate: Timestamp.fromDate(data.weddingDate),
         status: 'confirmed',
+        gownSelected: false,
         gownPickedUp: false,
         gownReturned: false,
         donationPaid: false,
@@ -313,6 +314,7 @@ export async function updateBooking(
     db: Firestore,
     bookingId: string,
     updates: Partial<{
+        gownSelected: boolean;
         gownPickedUp: boolean;
         gownReturned: boolean;
         gownDescription: string;
