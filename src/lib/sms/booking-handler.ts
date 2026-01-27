@@ -315,6 +315,7 @@ export async function updateBooking(
     updates: Partial<{
         gownPickedUp: boolean;
         gownReturned: boolean;
+        gownDescription: string;
         donationPaid: boolean;
         donationAmount: number;
         notes: string;

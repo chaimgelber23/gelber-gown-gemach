@@ -34,6 +34,7 @@ export interface Booking {
   // Gown tracking
   gownPickedUp: boolean;
   gownPickupDate?: Timestamp;
+  gownDescription?: string;  // What gown they took (e.g., "White A-line, size 8")
   gownReturned: boolean;
   gownReturnDate?: Timestamp;
   donationAmount?: number;
