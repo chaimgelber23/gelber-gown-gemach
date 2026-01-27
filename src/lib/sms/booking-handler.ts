@@ -319,6 +319,10 @@ export async function updateBooking(
         donationAmount: number;
         notes: string;
         status: Booking['status'];
+        customerName: string;
+        customerPhone: string;
+        groupSize: number;
+        weddingDate: Date;
     }>
 ): Promise<Booking | null> {
     const bookingRef = db.collection(COLLECTIONS.BOOKINGS).doc(bookingId);
@@ -328,10 +332,13 @@ export async function updateBooking(
         return null;
     }
 
-    await bookingRef.update({
-        ...updates,
-        updatedAt: Timestamp.now()
-    });
+    // Convert Date objects to Timestamps
+    const updateData: any = { ...updates, updatedAt: Timestamp.now() };
+    if (updates.weddingDate instanceof Date) {
+        updateData.weddingDate = Timestamp.fromDate(updates.weddingDate);
+    }
+
+    await bookingRef.update(updateData);
 
     const updated = await bookingRef.get();
     return updated.data() as Booking;

@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, format, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
 import EditBookingModal from '@/components/admin/EditBookingModal';
+import AddBookingModal from '@/components/admin/AddBookingModal';
 
 interface Booking {
     id: string;
@@ -25,6 +26,8 @@ export default function CalendarPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [preselectedDate, setPreselectedDate] = useState<Date | undefined>(undefined);
 
     useEffect(() => {
         fetchBookings();
@@ -55,9 +58,37 @@ export default function CalendarPage() {
         }
     };
 
-    const handleSaveEdit = async (updates: Partial<Booking>) => {
+    const handleSaveEdit = async (updates: Partial<Booking> & { reschedule?: { newDate: string; newSlotTime: string }; weddingDate?: string }) => {
         if (!editingBooking) return;
-        await updateBooking(editingBooking.id, updates);
+
+        // Handle reschedule separately
+        if (updates.reschedule) {
+            const { newDate, newSlotTime } = updates.reschedule;
+            await fetch('/api/admin/bookings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bookingId: editingBooking.id,
+                    action: 'reschedule',
+                    newDate: newDate,
+                    newSlotTime: newSlotTime,
+                }),
+            });
+        }
+
+        // Handle regular updates (excluding reschedule data)
+        const { reschedule, weddingDate, ...regularUpdates } = updates;
+
+        // If wedding date changed, include it in updates
+        if (weddingDate) {
+            (regularUpdates as any).weddingDate = new Date(weddingDate + 'T12:00:00');
+        }
+
+        if (Object.keys(regularUpdates).length > 0) {
+            await updateBooking(editingBooking.id, regularUpdates);
+        }
+
+        await fetchBookings();
         setEditingBooking(null);
     };
 
@@ -84,9 +115,20 @@ export default function CalendarPage() {
         <div className="h-full flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                    {format(currentDate, 'MMMM yyyy')}
-                </h2>
+                <div className="flex items-center gap-4">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                        {format(currentDate, 'MMMM yyyy')}
+                    </h2>
+                    <button
+                        onClick={() => {
+                            setPreselectedDate(undefined);
+                            setShowAddModal(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 text-sm font-medium"
+                    >
+                        <span className="text-lg leading-none">+</span> New Appointment
+                    </button>
+                </div>
                 <div className="flex space-x-2">
                     <button
                         onClick={() => setCurrentDate(subMonths(currentDate, 1))}
@@ -122,9 +164,12 @@ export default function CalendarPage() {
 
                 {/* Days */}
                 <div className="grid grid-cols-7 flex-1 auto-rows-fr">
-                    {calendarDays.map((day, dayIdx) => {
+                    {calendarDays.map((day) => {
                         const dayBookings = getBookingsForDay(day);
                         const isCurrentMonth = isSameMonth(day, monthStart);
+                        const dayOfWeek = day.getDay();
+                        const isAppointmentDay = dayOfWeek === 3 || dayOfWeek === 6; // Wed or Sat
+                        const isFutureOrToday = day >= new Date(new Date().setHours(0, 0, 0, 0));
 
                         return (
                             <div
@@ -133,10 +178,25 @@ export default function CalendarPage() {
                                     min-h-[120px] p-2 border-b border-r last:border-r-0 border-gray-100 relative group
                                     ${!isCurrentMonth ? 'bg-gray-50/50 text-gray-400' : 'bg-white'}
                                     ${isToday(day) ? 'bg-blue-50/30' : ''}
+                                    ${isAppointmentDay && isCurrentMonth ? 'bg-green-50/20' : ''}
                                 `}
                             >
-                                <div className={`text-right text-sm mb-2 font-medium ${isToday(day) ? 'text-blue-600' : 'text-gray-700'}`}>
-                                    {format(day, 'd')}
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className={`text-sm font-medium ${isToday(day) ? 'text-blue-600' : 'text-gray-700'}`}>
+                                        {format(day, 'd')}
+                                    </div>
+                                    {isAppointmentDay && isFutureOrToday && isCurrentMonth && (
+                                        <button
+                                            onClick={() => {
+                                                setPreselectedDate(day);
+                                                setShowAddModal(true);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 w-6 h-6 bg-blue-600 text-white rounded-full text-sm flex items-center justify-center hover:bg-blue-700 transition-all"
+                                            title="Add appointment"
+                                        >
+                                            +
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div className="space-y-1">
@@ -171,6 +231,17 @@ export default function CalendarPage() {
                     onSave={handleSaveEdit}
                 />
             )}
+
+            {/* Add Modal */}
+            <AddBookingModal
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                onSuccess={() => {
+                    fetchBookings();
+                    setShowAddModal(false);
+                }}
+                preselectedDate={preselectedDate}
+            />
         </div>
     );
 }

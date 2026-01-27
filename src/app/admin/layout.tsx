@@ -98,6 +98,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         { href: '/admin/board', label: 'Board' },
         { href: '/admin/bookings', label: 'All Bookings' },
         { href: '/admin/outstanding', label: 'Outstanding' },
+        { href: '/admin/schedule', label: 'Schedule' },
     ];
 
     return (

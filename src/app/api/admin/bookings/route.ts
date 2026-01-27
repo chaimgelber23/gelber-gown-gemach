@@ -9,6 +9,7 @@ import {
     cancelBooking,
     rescheduleBooking,
     getBookingById,
+    createBooking,
 } from '@/lib/sms/booking-handler';
 import { sendSms } from '@/lib/sms/twilio-sender';
 import { getAdminCancelledTemplate, getAdminRescheduledTemplate } from '@/lib/sms/templates';
@@ -53,6 +54,40 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ bookings });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+// POST - Create new booking
+export async function POST(request: NextRequest) {
+    try {
+        const { customerName, customerPhone, appointmentDate, slotTime, groupSize, weddingDate, notes } = await request.json();
+        const db = getDb();
+
+        // Normalize phone number
+        let normalizedPhone = customerPhone.replace(/\D/g, '');
+        if (normalizedPhone.length === 10) {
+            normalizedPhone = `+1${normalizedPhone}`;
+        } else if (normalizedPhone.length === 11 && normalizedPhone.startsWith('1')) {
+            normalizedPhone = `+${normalizedPhone}`;
+        }
+
+        const booking = await createBooking(db, {
+            customerName,
+            customerPhone: normalizedPhone,
+            appointmentDate: new Date(appointmentDate + 'T12:00:00'),
+            slotTime,
+            groupSize: Number(groupSize),
+            weddingDate: new Date(weddingDate + 'T12:00:00'),
+        });
+
+        // Update with notes if provided
+        if (notes) {
+            await updateBooking(db, booking.id, { notes });
+        }
+
+        return NextResponse.json({ success: true, booking });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
     }
 }
 
