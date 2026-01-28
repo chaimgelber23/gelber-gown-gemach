@@ -46,10 +46,15 @@ export function parseDate(dateStr: string, referenceDate: Date = new Date()): Da
         return result;
     }
 
-    // Try to parse as a standard date
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-        return parsed;
+    // Try to parse as a standard date (only if it includes a year)
+    // This avoids issues with "March 15" being parsed to year 2001 or similar
+    if (/\d{4}/.test(dateStr) || /\d{1,2}\/\d{1,2}\/\d{2,4}/.test(dateStr)) {
+        const parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) {
+            // Normalize to midnight local time
+            parsed.setHours(12, 0, 0, 0);
+            return parsed;
+        }
     }
 
     // Try common formats
@@ -60,11 +65,24 @@ export function parseDate(dateStr: string, referenceDate: Date = new Date()): Da
         const monthIndex = months.findIndex(m => monthDayMatch[1].startsWith(m.slice(0, 3)));
         if (monthIndex !== -1) {
             const day = parseInt(monthDayMatch[2]);
-            const result = new Date(today.getFullYear(), monthIndex, day);
+            let result = new Date(today.getFullYear(), monthIndex, day, 12, 0, 0, 0); // Noon to avoid timezone issues
+
             // If date is in the past, assume next year
             if (result < today) {
                 result.setFullYear(result.getFullYear() + 1);
             }
+
+            // If date is more than 8 months in the future, it's probably meant for this year
+            // (handles edge case like saying "January" in December)
+            const monthsInFuture = (result.getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 30);
+            if (monthsInFuture > 8) {
+                result.setFullYear(result.getFullYear() - 1);
+                // But if that puts it in the past, keep the next year
+                if (result < today) {
+                    result.setFullYear(result.getFullYear() + 1);
+                }
+            }
+
             return result;
         }
     }
