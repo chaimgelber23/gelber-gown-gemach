@@ -28,16 +28,30 @@ function getDb() {
     return getFirestore();
 }
 
-// GET - Fetch bookings
+// GET - Fetch bookings or statistics
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const status = searchParams.get('status') as any;
     const outstanding = searchParams.get('outstanding') === 'true';
     const unpaid = searchParams.get('unpaid') === 'true';
+    const stats = searchParams.get('stats') === 'true';
 
     try {
         const db = getDb();
+
+        // Return statistics if requested
+        if (stats) {
+            const allBookings = await getAllBookings(db, { status: 'all', limit: 1000 });
+
+            const totalGownsTakenOut = allBookings.filter(b => b.gownPickedUp).length;
+            const currentlyOut = allBookings.filter(b => b.gownPickedUp && !b.gownReturned).length;
+
+            return NextResponse.json({
+                totalGownsTakenOut,
+                currentlyOut
+            });
+        }
 
         if (date) {
             const bookings = await getBookingsForDate(db, new Date(date));
