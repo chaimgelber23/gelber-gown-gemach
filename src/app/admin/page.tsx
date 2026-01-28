@@ -1,4 +1,4 @@
-// Admin Dashboard - Today's Appointments
+// Admin Dashboard - Upcoming Appointments
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,24 +18,29 @@ interface Booking {
     notes?: string;
 }
 
+interface UpcomingDay {
+    date: string;
+    dayLabel: string;
+    bookings: Booking[];
+}
+
 interface GownStats {
     totalGownsTakenOut: number;
     currentlyOut: number;
 }
 
 export default function AdminDashboard() {
-    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [upcomingDays, setUpcomingDays] = useState<UpcomingDay[]>([]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState<string | null>(null);
     const [stats, setStats] = useState<GownStats>({ totalGownsTakenOut: 0, currentlyOut: 0 });
     const [statsLoading, setStatsLoading] = useState(true);
 
-    const fetchTodayBookings = async () => {
+    const fetchUpcomingBookings = async () => {
         try {
-            const today = new Date().toISOString().split('T')[0];
-            const res = await fetch(`/api/admin/bookings?date=${today}`);
+            const res = await fetch('/api/admin/bookings?upcoming=true');
             const data = await res.json();
-            setBookings(data.bookings || []);
+            setUpcomingDays(data.upcoming || []);
         } catch (error) {
             console.error('Failed to fetch bookings:', error);
         } finally {
@@ -59,7 +64,7 @@ export default function AdminDashboard() {
     };
 
     useEffect(() => {
-        fetchTodayBookings();
+        fetchUpcomingBookings();
         fetchStats();
     }, []);
 
@@ -71,7 +76,8 @@ export default function AdminDashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ bookingId, action: 'update', updates }),
             });
-            await fetchTodayBookings();
+            await fetchUpcomingBookings();
+            await fetchStats();
         } catch (error) {
             console.error('Update failed:', error);
         } finally {
@@ -89,7 +95,7 @@ export default function AdminDashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ bookingId, action: 'cancel' }),
             });
-            await fetchTodayBookings();
+            await fetchUpcomingBookings();
         } catch (error) {
             console.error('Cancel failed:', error);
         } finally {
@@ -105,15 +111,31 @@ export default function AdminDashboard() {
         });
     };
 
+    const formatDayDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+        });
+    };
+
+    const isToday = (dateStr: string) => {
+        const date = new Date(dateStr);
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    };
+
     if (loading) {
         return <div className="text-center py-12 text-gray-500">Loading...</div>;
     }
+
+    const totalBookings = upcomingDays.reduce((sum, day) => sum + day.bookings.length, 0);
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">
-                    Today's Appointments
+                    Upcoming Appointments
                 </h2>
                 <span className="text-gray-500">
                     {new Date().toLocaleDateString('en-US', {
@@ -159,54 +181,89 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {bookings.length === 0 ? (
+            {totalBookings === 0 ? (
                 <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-                    No appointments scheduled for today.
+                    No upcoming appointments scheduled.
                 </div>
             ) : (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Group</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wedding</th>
-                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Picked Up</th>
-                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {bookings.map((booking) => (
-                                <tr key={booking.id} className={updating === booking.id ? 'opacity-50' : ''}>
-                                    <td className="px-4 py-4 font-medium">{booking.slotTime}</td>
-                                    <td className="px-4 py-4">{booking.customerName}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-500">{booking.customerPhone}</td>
-                                    <td className="px-4 py-4">{booking.groupSize} people</td>
-                                    <td className="px-4 py-4 text-sm">{formatDate(booking.weddingDate)}</td>
-                                    <td className="px-4 py-4 text-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={booking.gownPickedUp}
-                                            onChange={(e) => updateBooking(booking.id, { gownPickedUp: e.target.checked })}
-                                            className="w-5 h-5 text-blue-600 rounded"
-                                            disabled={updating === booking.id}
-                                        />
-                                    </td>
-                                    <td className="px-4 py-4 text-center">
-                                        <button
-                                            onClick={() => cancelBooking(booking.id)}
-                                            className="text-red-600 hover:text-red-800 text-sm font-medium"
-                                            disabled={updating === booking.id}
-                                        >
-                                            Cancel
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                <div className="space-y-6">
+                    {upcomingDays.map((day) => (
+                        <div key={day.date} className="bg-white rounded-lg shadow overflow-hidden">
+                            <div className={`px-4 py-3 border-b ${isToday(day.date) ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="font-semibold text-gray-800">
+                                            {day.dayLabel}
+                                        </h3>
+                                        <span className="text-gray-500">
+                                            {formatDayDate(day.date)}
+                                        </span>
+                                        {isToday(day.date) && (
+                                            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                                                Today
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="text-sm text-gray-500">
+                                        {day.bookings.length} appointment{day.bookings.length !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {day.bookings.length === 0 ? (
+                                <div className="px-4 py-6 text-center text-gray-400">
+                                    No appointments scheduled
+                                </div>
+                            ) : (
+                                <table className="w-full">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Group</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wedding</th>
+                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Picked Up</th>
+                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {day.bookings.map((booking) => (
+                                            <tr key={booking.id} className={updating === booking.id ? 'opacity-50' : ''}>
+                                                <td className="px-4 py-4 font-medium">{booking.slotTime}</td>
+                                                <td className="px-4 py-4">{booking.customerName}</td>
+                                                <td className="px-4 py-4 text-sm text-gray-500">
+                                                    <a href={`tel:${booking.customerPhone}`} className="hover:text-blue-600">
+                                                        {booking.customerPhone}
+                                                    </a>
+                                                </td>
+                                                <td className="px-4 py-4">{booking.groupSize} people</td>
+                                                <td className="px-4 py-4 text-sm">{formatDate(booking.weddingDate)}</td>
+                                                <td className="px-4 py-4 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={booking.gownPickedUp}
+                                                        onChange={(e) => updateBooking(booking.id, { gownPickedUp: e.target.checked })}
+                                                        className="w-5 h-5 text-blue-600 rounded"
+                                                        disabled={updating === booking.id}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-4 text-center">
+                                                    <button
+                                                        onClick={() => cancelBooking(booking.id)}
+                                                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                                        disabled={updating === booking.id}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

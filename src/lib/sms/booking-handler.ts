@@ -66,6 +66,18 @@ export async function isSlotAvailable(
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
+    // Safety check: ensure the date is reasonable (not in distant past/future)
+    const now = new Date();
+    const oneYearAgo = new Date(now);
+    oneYearAgo.setFullYear(now.getFullYear() - 1);
+    const twoYearsForward = new Date(now);
+    twoYearsForward.setFullYear(now.getFullYear() + 2);
+
+    // If checking a date that seems invalid, don't match against potentially bad data
+    if (date < oneYearAgo || date > twoYearsForward) {
+        console.warn(`[isSlotAvailable] Unusual date detected: ${date.toISOString()}`);
+    }
+
     const snapshot = await db.collection(COLLECTIONS.BOOKINGS)
         .where('appointmentDate', '>=', Timestamp.fromDate(startOfDay))
         .where('appointmentDate', '<=', Timestamp.fromDate(endOfDay))
@@ -119,6 +131,29 @@ export async function createBooking(
         weddingDate: Date;
     }
 ): Promise<Booking> {
+    // Validate dates are reasonable
+    const currentDate = new Date();
+    const yesterday = new Date(currentDate);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const oneYearForward = new Date(currentDate);
+    oneYearForward.setFullYear(currentDate.getFullYear() + 1);
+
+    if (data.appointmentDate < yesterday) {
+        throw new Error('Appointment date cannot be in the past');
+    }
+
+    if (data.appointmentDate > oneYearForward) {
+        throw new Error('Appointment date must be within the next year');
+    }
+
+    if (data.weddingDate < yesterday) {
+        throw new Error('Wedding date cannot be in the past');
+    }
+
+    if (data.weddingDate < data.appointmentDate) {
+        throw new Error('Wedding date must be after appointment date');
+    }
+
     const customer = await upsertCustomer(db, data.customerPhone, data.customerName);
 
     const isAvailable = await isSlotAvailable(db, data.appointmentDate, data.slotTime);
@@ -444,4 +479,66 @@ export async function getBookingsForDate(
         .get();
 
     return snapshot.docs.map((d) => d.data() as Booking);
+}
+
+/**
+ * Get the next Wednesday date from a given date
+ */
+function getNextWednesday(from: Date): Date {
+    const date = new Date(from);
+    const day = date.getDay();
+    const daysUntilWednesday = (3 - day + 7) % 7;
+    date.setDate(date.getDate() + (daysUntilWednesday === 0 ? 0 : daysUntilWednesday));
+    date.setHours(0, 0, 0, 0);
+    return date;
+}
+
+/**
+ * Get the next Saturday date from a given date
+ */
+function getNextSaturday(from: Date): Date {
+    const date = new Date(from);
+    const day = date.getDay();
+    const daysUntilSaturday = (6 - day + 7) % 7;
+    date.setDate(date.getDate() + (daysUntilSaturday === 0 ? 0 : daysUntilSaturday));
+    date.setHours(0, 0, 0, 0);
+    return date;
+}
+
+/**
+ * Get upcoming appointments for the next Wednesday and Motzei Shabbos
+ * Returns appointments grouped by date
+ */
+export async function getUpcomingAppointments(
+    db: Firestore
+): Promise<{ date: Date; dayLabel: string; bookings: Booking[] }[]> {
+    const now = new Date();
+    const results: { date: Date; dayLabel: string; bookings: Booking[] }[] = [];
+
+    // Get next Wednesday (or today if it's Wednesday)
+    const nextWed = getNextWednesday(now);
+    const wedBookings = await getBookingsForDate(db, nextWed);
+    if (wedBookings.length > 0 || nextWed.toDateString() === now.toDateString() || nextWed > now) {
+        results.push({
+            date: nextWed,
+            dayLabel: 'Wednesday',
+            bookings: wedBookings
+        });
+    }
+
+    // Get next Saturday (or today if it's Saturday)
+    const nextSat = getNextSaturday(now);
+    const satBookings = await getBookingsForDate(db, nextSat);
+    if (satBookings.length > 0 || nextSat.toDateString() === now.toDateString() || nextSat > now) {
+        results.push({
+            date: nextSat,
+            dayLabel: 'Motzei Shabbos',
+            bookings: satBookings
+        });
+    }
+
+    // Sort by date
+    results.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    return results;
 }

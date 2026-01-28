@@ -5,6 +5,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import {
     getAllBookings,
     getBookingsForDate,
+    getUpcomingAppointments,
     updateBooking,
     cancelBooking,
     rescheduleBooking,
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
     const outstanding = searchParams.get('outstanding') === 'true';
     const unpaid = searchParams.get('unpaid') === 'true';
     const stats = searchParams.get('stats') === 'true';
+    const upcoming = searchParams.get('upcoming') === 'true';
 
     try {
         const db = getDb();
@@ -51,6 +53,12 @@ export async function GET(request: NextRequest) {
                 totalGownsTakenOut,
                 currentlyOut
             });
+        }
+
+        // Return upcoming Wednesday and Motzei Shabbos appointments
+        if (upcoming) {
+            const upcomingData = await getUpcomingAppointments(db);
+            return NextResponse.json({ upcoming: upcomingData });
         }
 
         if (date) {
