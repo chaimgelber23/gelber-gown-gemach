@@ -231,7 +231,8 @@ export function getAssistantConfig(serverUrl: string) {
     },
     voice: {
       provider: "11labs",
-      voiceId: "21m00Tcm4TlvDq8ikWAM" // Rachel - warm, friendly female voice
+      voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel - warm, friendly female voice
+      model: "eleven_turbo_v2_5" // Required for pronunciation dictionary support
     },
     firstMessage: "Hi, thank you for calling Gelber Gown Gemach! Mazel tov if you're calling about a wedding. How can I help you today?",
     endCallMessage: "Thank you for calling Gelber Gown Gemach. Mazel tov and have a wonderful day!",
