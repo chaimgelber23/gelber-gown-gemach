@@ -185,6 +185,12 @@ async function handleToolCall(
 
       } catch (error: any) {
         console.error('Booking error:', error);
+        console.error('Booking error stack:', error.stack);
+        console.error('Booking error details:', JSON.stringify({
+          message: error.message,
+          code: error.code,
+          name: error.name
+        }));
 
         if (error.message?.includes('not available')) {
           const availableSlots = await getAvailableSlotsForDate(db, parsedAppointmentDate);
@@ -203,9 +209,11 @@ async function handleToolCall(
           }
         }
 
+        // Include error details for debugging (remove in production later)
         return {
           success: false,
-          message: "I'm having trouble completing the booking. Could you please text us at 347-507-5981 to complete your reservation?"
+          message: "I'm having trouble completing the booking. Could you please text us at 347-507-5981 to complete your reservation?",
+          _debug: error.message || 'Unknown error'
         };
       }
     }
