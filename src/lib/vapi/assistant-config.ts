@@ -234,6 +234,14 @@ export function getToolDefinitions(serverUrl: string) {
 
 // Full assistant configuration for Vapi API
 export function getAssistantConfig(serverUrl: string) {
+  // Create tools with the actual server URL
+  const tools = VAPI_TOOLS.map(tool => ({
+    ...tool,
+    server: {
+      url: `${serverUrl}/api/vapi`
+    }
+  }));
+
   return {
     name: "Gelber Gown Gemach Receptionist",
     model: {
@@ -245,7 +253,8 @@ export function getAssistantConfig(serverUrl: string) {
           role: "system",
           content: VAPI_SYSTEM_PROMPT
         }
-      ]
+      ],
+      tools: tools
     },
     voice: {
       provider: "11labs",
