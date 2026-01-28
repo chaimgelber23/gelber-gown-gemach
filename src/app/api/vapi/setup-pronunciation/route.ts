@@ -3,128 +3,62 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-// Hebrew words with IPA phonemes for proper "ch" (guttural) pronunciation
+// Hebrew words with IPA phonemes for natural Yiddish pronunciation
+// The "x" sound (voiceless velar fricative) is the guttural "ch" like in Chaim (חיים)
 const HEBREW_PRONUNCIATIONS = [
-  {
-    stringToReplace: "Gemach",
-    type: "phoneme",
-    phoneme: "ɡɛmax",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "gemach",
-    type: "phoneme",
-    phoneme: "ɡɛmax",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Chana",
-    type: "phoneme",
-    phoneme: "xanə",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Chani",
-    type: "phoneme",
-    phoneme: "xani",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Chaim",
-    type: "phoneme",
-    phoneme: "xaɪm",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Bracha",
-    type: "phoneme",
-    phoneme: "braxə",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Lechaim",
-    type: "phoneme",
-    phoneme: "ləxaɪm",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "L'chaim",
-    type: "phoneme",
-    phoneme: "ləxaɪm",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Mazel tov",
-    type: "phoneme",
-    phoneme: "mazəl tɔv",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "mazel tov",
-    type: "phoneme",
-    phoneme: "mazəl tɔv",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Motzei Shabbos",
-    type: "phoneme",
-    phoneme: "moʊtseɪ ʃabəs",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "motzei shabbos",
-    type: "phoneme",
-    phoneme: "moʊtseɪ ʃabəs",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Shabbos",
-    type: "phoneme",
-    phoneme: "ʃabəs",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Kallah",
-    type: "phoneme",
-    phoneme: "kalə",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "kallah",
-    type: "phoneme",
-    phoneme: "kalə",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Chinuch",
-    type: "phoneme",
-    phoneme: "xinux",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Kollel",
-    type: "phoneme",
-    phoneme: "kɔleɪl",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Chasunah",
-    type: "phoneme",
-    phoneme: "xasunə",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "chasunah",
-    type: "phoneme",
-    phoneme: "xasunə",
-    alphabet: "ipa"
-  },
-  {
-    stringToReplace: "Gelber",
-    type: "phoneme",
-    phoneme: "ɡɛlbər",
-    alphabet: "ipa"
-  }
+  // Business name
+  { stringToReplace: "Gemach", type: "phoneme", phoneme: "ɡɛmɑx", alphabet: "ipa" },
+  { stringToReplace: "gemach", type: "phoneme", phoneme: "ɡɛmɑx", alphabet: "ipa" },
+  { stringToReplace: "Gelber", type: "phoneme", phoneme: "ɡɛlbɛr", alphabet: "ipa" },
+
+  // Common names with "ch" sound
+  { stringToReplace: "Chaim", type: "phoneme", phoneme: "xaɪm", alphabet: "ipa" },
+  { stringToReplace: "chaim", type: "phoneme", phoneme: "xaɪm", alphabet: "ipa" },
+  { stringToReplace: "Chana", type: "phoneme", phoneme: "xɑnɑ", alphabet: "ipa" },
+  { stringToReplace: "chana", type: "phoneme", phoneme: "xɑnɑ", alphabet: "ipa" },
+  { stringToReplace: "Chani", type: "phoneme", phoneme: "xɑni", alphabet: "ipa" },
+  { stringToReplace: "Chaya", type: "phoneme", phoneme: "xaɪɑ", alphabet: "ipa" },
+  { stringToReplace: "Chavi", type: "phoneme", phoneme: "xɑvi", alphabet: "ipa" },
+  { stringToReplace: "Bracha", type: "phoneme", phoneme: "brɑxɑ", alphabet: "ipa" },
+  { stringToReplace: "bracha", type: "phoneme", phoneme: "brɑxɑ", alphabet: "ipa" },
+  { stringToReplace: "Ruchel", type: "phoneme", phoneme: "ruxəl", alphabet: "ipa" },
+  { stringToReplace: "Rochel", type: "phoneme", phoneme: "ruxəl", alphabet: "ipa" },
+  { stringToReplace: "Simcha", type: "phoneme", phoneme: "sɪmxɑ", alphabet: "ipa" },
+  { stringToReplace: "simcha", type: "phoneme", phoneme: "sɪmxɑ", alphabet: "ipa" },
+  { stringToReplace: "Nachum", type: "phoneme", phoneme: "nɑxum", alphabet: "ipa" },
+  { stringToReplace: "Nachman", type: "phoneme", phoneme: "nɑxmɑn", alphabet: "ipa" },
+  { stringToReplace: "Yechiel", type: "phoneme", phoneme: "jɛxiɛl", alphabet: "ipa" },
+  { stringToReplace: "Mechel", type: "phoneme", phoneme: "mɛxəl", alphabet: "ipa" },
+  { stringToReplace: "Menachem", type: "phoneme", phoneme: "mənɑxəm", alphabet: "ipa" },
+
+  // Greetings and expressions
+  { stringToReplace: "Mazel tov", type: "phoneme", phoneme: "mɑzəl tɔv", alphabet: "ipa" },
+  { stringToReplace: "mazel tov", type: "phoneme", phoneme: "mɑzəl tɔv", alphabet: "ipa" },
+  { stringToReplace: "Mazal tov", type: "phoneme", phoneme: "mɑzəl tɔv", alphabet: "ipa" },
+  { stringToReplace: "L'chaim", type: "phoneme", phoneme: "ləxaɪm", alphabet: "ipa" },
+  { stringToReplace: "Lechaim", type: "phoneme", phoneme: "ləxaɪm", alphabet: "ipa" },
+  { stringToReplace: "b'sha'ah tovah", type: "phoneme", phoneme: "bʃɑɑ toʊvɑ", alphabet: "ipa" },
+
+  // Shabbos/religious terms
+  { stringToReplace: "Shabbos", type: "phoneme", phoneme: "ʃɑbəs", alphabet: "ipa" },
+  { stringToReplace: "shabbos", type: "phoneme", phoneme: "ʃɑbəs", alphabet: "ipa" },
+  { stringToReplace: "Motzei Shabbos", type: "phoneme", phoneme: "moʊtseɪ ʃɑbəs", alphabet: "ipa" },
+  { stringToReplace: "motzei shabbos", type: "phoneme", phoneme: "moʊtseɪ ʃɑbəs", alphabet: "ipa" },
+  { stringToReplace: "Motzei", type: "phoneme", phoneme: "moʊtseɪ", alphabet: "ipa" },
+
+  // Wedding terms
+  { stringToReplace: "Kallah", type: "phoneme", phoneme: "kɑlɑ", alphabet: "ipa" },
+  { stringToReplace: "kallah", type: "phoneme", phoneme: "kɑlɑ", alphabet: "ipa" },
+  { stringToReplace: "kallahs", type: "phoneme", phoneme: "kɑlɑs", alphabet: "ipa" },
+  { stringToReplace: "Chasunah", type: "phoneme", phoneme: "xɑsunɑ", alphabet: "ipa" },
+  { stringToReplace: "chasunah", type: "phoneme", phoneme: "xɑsunɑ", alphabet: "ipa" },
+  { stringToReplace: "Chosson", type: "phoneme", phoneme: "xɔsən", alphabet: "ipa" },
+
+  // Community terms
+  { stringToReplace: "Chinuch", type: "phoneme", phoneme: "xinux", alphabet: "ipa" },
+  { stringToReplace: "chinuch", type: "phoneme", phoneme: "xinux", alphabet: "ipa" },
+  { stringToReplace: "Kollel", type: "phoneme", phoneme: "kɔleɪl", alphabet: "ipa" },
+  { stringToReplace: "kollel", type: "phoneme", phoneme: "kɔleɪl", alphabet: "ipa" }
 ];
 
 export async function POST(request: NextRequest) {
